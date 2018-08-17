@@ -1,0 +1,8 @@
+Name = {{ tinc_name }}
+AddressFamily = ipv4
+Interface = {{ tinc_interface }}
+{% for host in tinc_primaries %}
+{% if host != tinc_name %}
+ConnectTo = {{ host }}
+{% endif %}
+{% endfor %}

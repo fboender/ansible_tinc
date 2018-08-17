@@ -1,0 +1,4 @@
+---
+- hosts: tinc
+  roles:
+    - { role: tinc, tags: [ 'tinc' ] }

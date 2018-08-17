@@ -1,0 +1,7 @@
+[tinc]
+# Masters are hosts that listen externally for incoming Tinc connections
+primary1.example.com
+primary2.example.com
+# Clients don't listen for incoming Tinc connections but connect to primaries.
+client1.example.com
+client2.example.com

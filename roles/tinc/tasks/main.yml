@@ -1,0 +1,116 @@
+---
+- name: Install tinc
+  package:
+    name: tinc
+    state: present
+
+- name: ensure tinc netname directory exists
+  file:
+    path=/etc/tinc/{{ tinc_netname }}/hosts
+    recurse=True
+    state=directory
+
+- name: create nets.boot
+  template:
+    src=nets.boot.j2
+    dest=/etc/tinc/nets.boot
+
+- name: ensure tinc.conf contains connection to all other nodes
+  template:
+    src=tinc.conf.j2
+    dest=/etc/tinc/{{ tinc_netname }}/tinc.conf
+
+- name: create tinc-up file
+  template:
+    src=tinc-up.j2
+    dest=/etc/tinc/{{ tinc_netname }}/tinc-up
+    mode=0755
+
+- name: create tinc-down file
+  template:
+    src=tinc-down.j2
+    dest=/etc/tinc/{{ tinc_netname }}/tinc-down
+    mode=0755
+
+# if there is no public key yet for this node, we let tinc create one. It will
+# be saved to /etc/tinc/{{ tinc_netname }}/{{ tinc_name }}, so we copy the
+# contents of that file into a variable, write it out to /etc/tinc/{{
+# tinc_netname }}/rsa__key.pub, and then overwrite the /etc/tinc/{{
+# tinc_netname }}/{{ tinc_name}} file with a template containing it.
+- name: check whether public key exists
+  stat:
+    path: /etc/tinc/{{ tinc_netname }}/rsa_key.pub
+  register: has_pubkey
+
+- name: create tinc public/private key
+  shell: tincd -n {{ tinc_netname }} -K4096
+  args:
+    creates: /etc/tinc/{{ tinc_netname }}/rsa_key.priv
+  when: has_pubkey.stat.exists == false
+
+- name: Copy pubkey
+  slurp:
+    src=/etc/tinc/{{ tinc_netname }}/hosts/{{ tinc_name }}
+  register: tinc_pubkey
+  when: has_pubkey.stat.exists == false
+
+- name: Create rsa_key.pub
+  copy:
+    content="{{ tinc_pubkey['content'] | b64decode }}"
+    dest=/etc/tinc/{{ tinc_netname }}/rsa_key.pub
+  when: has_pubkey.stat.exists == false
+
+- name: Slurp public key file
+  slurp:
+    src=/etc/tinc/{{ tinc_netname }}/rsa_key.pub
+  register: tinc_pubkey
+
+- name: Generate tinc hosts file
+  template:
+    src=tinc_host.j2
+    dest=/etc/tinc/{{ tinc_netname }}/hosts/{{ tinc_name }}
+
+# Fetch the tinc host file for each host to local, so we can copy it to all
+# other hosts.
+- name: fetch tinc hosts file after key creation
+  fetch:
+    src=/etc/tinc/{{ tinc_netname }}/hosts/{{ tinc_name }}
+    dest=fetch/{{ tinc_name }}
+    flat=yes
+
+- copy:
+    src: "{{ item }}"
+    dest: /etc/tinc/{{ tinc_netname }}/hosts/
+    owner: root
+    mode: 0640
+  with_fileglob:
+    - fetch/*
+
+- name: Create /etc/hosts entries
+  blockinfile:
+    path: /etc/hosts
+    block: |
+      {% for host in vars['play_hosts'] %}
+      {{ hostvars[host].tinc_ip }} {{ hostvars[host].tinc_name }}.em
+      {% endfor %}
+
+- name: ensure tinc is started (14.04)
+  service:
+    name=tinc
+    enabled=yes
+    state=restarted
+  when: ansible_distribution_version == '14.04'
+
+- name: ensure tinc is started (16.04)
+  service:
+    name=tinc
+    enabled=yes
+    state=restarted
+  when: ansible_distribution_version == '16.04'
+
+- name: ensure tinc is started (18.04)
+  service:
+    name="tinc@{{ tinc_netname}}"
+    enabled=yes
+    state=restarted
+  when: ansible_distribution_version == '18.04'

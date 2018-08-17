@@ -1,0 +1,6 @@
+{% if tinc_ip_external is defined %}
+Address = {{ tinc_ip_external }}
+{% endif %}
+Subnet = {{ tinc_ip }}/{{ tinc_netmask_cidr }}"
+
+{{ tinc_pubkey['content'] | b64decode }}

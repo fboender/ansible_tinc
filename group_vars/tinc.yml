@@ -1,0 +1,12 @@
+---
+
+tinc_netname: mynetwork
+tinc_interface: tun0
+tinc_netmask: 255.255.255.0
+tinc_netmask_cidr: 32
+
+# Primary hosts to which all clients can connect. These are 'tinc_name's, not
+# hostnames. See host_vars/
+tinc_primaries:
+  - primary1
+  - primary2
